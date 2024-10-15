@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 from app.db.database import init_db, get_db
 from sqlalchemy.orm import Session
+from app.routing.queue_router import router
 
 app = FastAPI()
+
+app.include_router(router)
 
 @app.on_event("startup")
 async def startup_event():

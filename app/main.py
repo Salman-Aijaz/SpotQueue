@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from app.db.database import init_db, get_db
 from sqlalchemy.orm import Session
-from app.routing.queue_router import router
+from app.routing.service_router import router
 
 app = FastAPI()
 

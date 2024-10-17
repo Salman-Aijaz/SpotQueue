@@ -6,6 +6,10 @@ from app.db.database import get_db
 
 router = APIRouter()
     
+@router.get("/")
+async def root():
+    return {"message": "Spot Queue"}
+
 @router.post("/service",response_model=ServiceResponse)
 def create_service(service:ServiceCreate,db:Session=Depends(get_db)):
     """

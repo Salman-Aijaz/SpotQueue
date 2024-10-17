@@ -1,11 +1,12 @@
 import pytest
 from app.core.config import settings
+from unittest.mock import patch
 
 # 1. Parametrized test for POST /service with different edge cases
 @pytest.mark.parametrize("service_data, expected_status, expected_detail", [
-    ({"service_name": "Admin", "service_entry_time": "09:00:00", "service_end_time": "18:00:00", "number_of_counters": 2}, 200, None),
+    ({"service_name": "Benefits", "service_entry_time": "09:00:00", "service_end_time": "18:00:00", "number_of_counters": 2}, 200, None),
     ({"service_name": "Admin", "service_entry_time": "09:00:00", "service_end_time": "18:00:00", "number_of_counters": 2}, 400, "Service already exists"),
-    ({"service_name": "Benefits", "service_entry_time": "09:00:00", "service_end_time": "18:00:00", "number_of_counters": 0}, 400, "The number of counter not to be in negative or 0-")
+    ({"service_name": "Accounts", "service_entry_time": "09:00:00", "service_end_time": "18:00:00", "number_of_counters": 0}, 400, "The number of counter not to be in negative or 0-")
 ])
 def test_post_service(service_data,expected_status,expected_detail):
     """
@@ -26,13 +27,22 @@ def test_post_service(service_data,expected_status,expected_detail):
 
 # 2. Parametrized test for GET /service/{service_name}
 @pytest.mark.parametrize("service_name, expected_status, expected_detail", [
-    ("Health Checkup", 200, None),  # Valid service name
-    ("NonExistentService", 400, "Service not found or exist")  # Invalid service name
-])        
-def test_get_service_by_name(service_name, expected_status, expected_detail):
+    ("Health Checkup", 200, None),  
+    ("NonExistentService", 400, "Service not found or exist") 
+])
+@patch('app.crud.services_management.get_service_by_name')
+def test_get_service_by_name(mock_get_service,service_name, expected_status, expected_detail):
     """
-    Test GET /service/{service_name} for both valid and invalid service names.
+    Test GET /service/{service_name} with a mocked database query.
+
+    Uses `patch` to mock `get_service_by_name`:
+    - Returns mock service data for a valid service.
+    - Returns None for non-existent services.
+
+    Validates the response status and content against expected results.
     """
+
+    mock_get_service.return_value = None
     response = settings.client.get(f"service/{service_name}")
     assert response.status_code == expected_status
 

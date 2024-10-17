@@ -6,11 +6,8 @@ from app.db.database import get_db
 
 router = APIRouter()
     
-@router.get("/")
-async def root():
-    return {"message": "Spot Queue"}
 
-@router.post("/service",response_model=ServiceResponse)
+@router.post("/",response_model=ServiceResponse)
 def create_service(service:ServiceCreate,db:Session=Depends(get_db)):
     """
         Create a new service.
@@ -25,7 +22,7 @@ def create_service(service:ServiceCreate,db:Session=Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500,detail=f"Error creating Service {e}")
     
-@router.get("/service",response_model=list[ServiceResponse])
+@router.get("/",response_model=list[ServiceResponse])
 def read_services(db:Session=Depends(get_db)):
     """
         Retrieve a list of all available services.
@@ -38,7 +35,7 @@ def read_services(db:Session=Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=e.status_code,detail=e.detail)
     
-@router.get("/service/{service_name}",response_model=ServiceResponse)
+@router.get("/{service_name}",response_model=ServiceResponse)
 def read_service_by_name(service_name:str,db:Session = Depends(get_db)):
     """
         Retrieve a service by its name.

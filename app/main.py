@@ -1,13 +1,10 @@
 from fastapi import FastAPI
-from app.db.database import init_db, get_db
-from sqlalchemy.orm import Session
+from app.routing.service_router import router
+from app.db.database import init_db
 
-app = FastAPI()
-
-@app.on_event("startup")
-async def startup_event():
+async def lifespan(app:FastAPI):
     init_db() 
+    yield
 
-@app.get("/")
-async def root():
-    return {"message": "Spot Queue"}
+app:FastAPI = FastAPI(lifespan=lifespan)
+app.include_router(router)

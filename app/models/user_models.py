@@ -1,5 +1,6 @@
 from sqlalchemy import Column,Integer,String
 from app.db.database import Base
+from sqlalchemy.orm import relationship
 
 class User(Base):
     """
@@ -16,3 +17,5 @@ class User(Base):
     hashed_password=Column(String)
     email = Column(String, unique=True, index=True)
     role = Column(String, default="User")
+
+    counters = relationship("Counter", back_populates="user")

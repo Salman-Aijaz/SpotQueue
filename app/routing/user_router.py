@@ -12,17 +12,22 @@ router = APIRouter()
 @router.post("/register",response_model=UserIn)
 def register_user(user:UserCreate,db:Session = Depends(get_db)):
     """
-        Register a new user in the system.
+        Register a new user.
 
-        Args:
-            user (UserCreate): The user information to create a new user.
-            db (Session): The database session dependency.
+        This endpoint allows a new user to register by providing a username, email, 
+        and password. It checks for existing users with the same email and 
+        hashes the password before storing it.
+
+        Parameters:
+            - user (UserCreate): The user details for registration.
+            - db (Session, optional): The database session. Defaults to a dependency from `get_db`.
 
         Raises:
-            HTTPException: If the email is already registered or if user creation fails.
+            - HTTPException: If the email is already registered (status code 400).
+            - HTTPException: If there's an error creating the user (status code 500).
 
         Returns:
-            UserIn: The newly created user object.
+            - UserIn: The created user object.
     """
     existing_user = get_user_by_email(db,user.email)
     if existing_user:
@@ -35,30 +40,33 @@ def register_user(user:UserCreate,db:Session = Depends(get_db)):
     hashed_password = get_password_hash(user.password)
     # creating a new user in the database 
     try:
-        new_user = create_user(db,user.username,user.email,hashed_password)
+        new_user = create_user(db,user.name,user.email,hashed_password)
     except Exception as e:
         settings.logger.error(f"Error creating user: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Failed to create user, please try again later: {e}"
         )
-    return new_user
+    return UserIn(id=new_user.id,name=new_user.name,email=new_user.email,role=new_user.role)
 
 
 @router.post("/login",response_model=Token)
 def login_for_access_token(form_data:OAuth2PasswordRequestForm = Depends(),db:Session = Depends(get_db) ):
     """
-        Log in a user and obtain an access token.
+        Login a user and return an access token.
 
-        Args:
-            form_data (OAuth2PasswordRequestForm): The form containing user login information.
-            db (Session): The database session dependency.
+        This endpoint allows a user to log in by providing their email and password. 
+        If successful, it generates and returns an access token for authenticated access.
+
+        Parameters:
+            - form_data (OAuth2PasswordRequestForm, optional): The login credentials (email and password).
+            - db (Session, optional): The database session. Defaults to a dependency from `get_db`.
 
         Raises:
-            HTTPException: If the email or password is incorrect.
+            - HTTPException: If the login credentials are incorrect (status code 400).
 
         Returns:
-            Token: A token containing the access token and token type.
+            - Token: An object containing the access token and its type.
     """
     user = get_user_by_email(db, email=form_data.username)
     if not user or not verify_password(form_data.password,user.hashed_password):
@@ -74,13 +82,15 @@ def login_for_access_token(form_data:OAuth2PasswordRequestForm = Depends(),db:Se
 @router.get("/",response_model=list[UserIn])
 def get_users(db:Session=Depends(get_db)):
     """
-        Retrieve all registered users.
+        Retrieve a list of all registered users.
 
-        Args:
-            db (Session): The database session dependency.
+        This endpoint returns a list of all users stored in the database.
+
+        Parameters:
+            - db (Session, optional): The database session. Defaults to a dependency from `get_db`.
 
         Returns:
-            list[UserIn]: A list of registered users.
+            - list[UserIn]: A list of user objects.
     """
     users = get_all_users(db)
     return users
@@ -91,15 +101,18 @@ def get_user_by_name(name:str,db:Session = Depends(get_db)):
     """
         Retrieve a user by their username.
 
-        Args:
-            name (str): The username of the user to retrieve.
-            db (Session): The database session dependency.
+        This endpoint allows the retrieval of a user’s details using their username. 
+        If the user is not found, a 404 error is raised.
+
+        Parameters:
+            - name (str): The username of the user to retrieve.
+            - db (Session, optional): The database session. Defaults to a dependency from `get_db`.
 
         Raises:
-            HTTPException: If the user is not found.
+            - HTTPException: If the user is not found (status code 400).
 
         Returns:
-            UserIn: The user object if found.
+            - UserIn: The user object corresponding to the provided username.
     """
     user = get_user_by_username(db,name=name)
     if not user:

@@ -36,8 +36,6 @@ def create_services(db:Session,service:ServiceCreate):
         if existing_services:
             raise HTTPException(status_code=400,detail="Service already exists")
 
-        if service.number_of_counters < 1:
-            raise HTTPException(status_code=400,detail="The number of counter not to be in negative or 0-")
         
         query = text("""
         INSERT INTO services (service_name,service_entry_time,service_end_time, number_of_counters)
@@ -116,7 +114,7 @@ def get_service_by_name(db:Session,service_name:str):
     """
     try:
         query=text("""
-            SELECT id,service_name,service_entry_time,service_end_time,number_of_counters
+            SELECT id,service_name,service_entry_time,service_end_time
             FROM services
             WHERE service_name = :service_name
         """)
@@ -131,7 +129,6 @@ def get_service_by_name(db:Session,service_name:str):
             "service_name": service.service_name,
             "service_entry_time": service.service_entry_time,
             "service_end_time": service.service_end_time,
-            "number_of_counters": service.number_of_counters
         }
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Error while fetching the service: {e}")

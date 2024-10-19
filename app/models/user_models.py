@@ -19,3 +19,4 @@ class User(Base):
     role = Column(String, default="User")
 
     counters = relationship("Counter", back_populates="user")
+    tokens = relationship("Token", back_populates="user") 

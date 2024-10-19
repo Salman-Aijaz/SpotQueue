@@ -1,0 +1,24 @@
+from pydantic import BaseModel
+
+class TokenRequest(BaseModel):
+    email: str
+    service_name: str
+    latitude: float
+    longitude: float
+
+class TokenCreate(BaseModel):
+    user_id: int
+    service_id: int
+    counter_id: int
+    latitude: float
+    longitude: float
+
+class TokenResponse(BaseModel):
+    token_number: int  # Ensure this is updated to match the new type
+    user_id: int
+    service_id: int
+    counter_id: int
+    status: str
+
+    class Config:
+        orm_mode = True

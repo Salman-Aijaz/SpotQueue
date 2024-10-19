@@ -28,6 +28,9 @@ def create_counter(db: Session, counter: CounterCreate):
         db.add(new_counter)
         db.commit()
         db.refresh(new_counter)
+        counters_count = db.query(Counter).filter(Counter.service_id == service.id).count()
+        service.number_of_counters = counters_count
+        db.commit()
         return new_counter
     except SQLAlchemyError as e:
         db.rollback()
@@ -52,3 +55,7 @@ def get_counter_by_id(db: Session, counter_id: int):
         return counter
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=f"Error while fetching the counter: {e}")
+
+def get_counter_by_service_id(db: Session, service_id: int):
+    counter = db.query(Counter).filter(Counter.service_id == service_id).first()
+    return counter.id if counter else None  # Return counter id or None if not found

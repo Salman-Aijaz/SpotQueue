@@ -10,6 +10,6 @@ class Service(Base):
     service_name= Column(String,nullable=False)
     service_entry_time = Column(Time,nullable=False)
     service_end_time = Column(Time,nullable=False)
-    number_of_counters = Column(Integer, nullable=False)
 
     counters = relationship("Counter", back_populates="service")
+    tokens = relationship("Token", back_populates="service")

@@ -15,6 +15,9 @@ class Token(Base):
     latitude = Column(Float, nullable=False)  # Latitude of the user
     longitude = Column(Float, nullable=False)  # Longitude of the user
     
+    distance = Column(Float,nullable=True)
+    duration = Column(Integer,nullable=True)
+
     # Foreign keys
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Link to the User table
     service_id = Column(Integer, ForeignKey("services.id"), nullable=False)  # Link to the Service table

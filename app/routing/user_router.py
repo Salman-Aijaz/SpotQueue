@@ -9,7 +9,7 @@ from app.db.database import get_db
 from app.utils.auth import get_password_hash,verify_password,create_access_token
 from app.crud.user_management import create_user,get_user_by_email,get_all_users,get_user_by_username
 from app.core.config import settings    
-from app.crud.token_management import create_token_record
+from app.crud.token_management import create_token_record, generate_token
 
 
 router = APIRouter()
@@ -127,36 +127,9 @@ def get_user_by_name(name:str,db:Session = Depends(get_db)):
 
 
 @router.post("/token", response_model=TokenResponse)
-def generate_token_for_user(request: TokenRequest, db: Session = Depends(get_db)):
-    # Get user by email
-    user = get_user_by_email(db, request.email)
-    if not user:
-        raise HTTPException(status_code=400, detail="User not found")
-
-    # Get service by name
-    service = get_service_by_name(db, request.service_name)
-    if not service:
-        raise HTTPException(status_code=400, detail="Service not found")
-
-    # Access the service ID from the dictionary
-    service_id = service['id']  
-
-    # Get counter responsible for this service
-    counter_id = get_counter_by_service_id(db, service_id)
-    if counter_id is None:
-        raise HTTPException(status_code=400, detail="No counter available for this service")
-
-    # Generate the token and store it in the database
-    token_data = TokenCreate(
-        user_id=user.id,
-        service_id=service_id,
-        counter_id=counter_id,  
-        latitude=request.latitude,
-        longitude=request.longitude
-    )
-    
+async def generate_token_for_user(request: TokenRequest, db: Session = Depends(get_db)):
     try:
-        token = create_token_record(db, token_data)
+        token = await generate_token(request, db)
         
         # Return a TokenResponse
         return TokenResponse(
@@ -164,7 +137,11 @@ def generate_token_for_user(request: TokenRequest, db: Session = Depends(get_db)
             user_id=token.user_id,
             service_id=token.service_id,
             counter_id=token.counter_id,
+            distance = token.distance,
+            duration = token.duration,
             status="Token generated successfully"
         )
+    except HTTPException as e:
+        raise e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generating token: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating token: {e}")

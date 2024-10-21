@@ -8,7 +8,6 @@ class Counter(Base):
     id = Column(Integer,primary_key=True,index=True)
     counter_number= Column(Integer,nullable=False)
     service_id=Column(Integer,ForeignKey("services.id"),nullable=False)
-    user_id=Column(Integer,ForeignKey("users.id"),nullable=True)  # Can be null if not occupied
 
     service=relationship("Service",back_populates="counters")
     user = relationship("User",back_populates="counters")

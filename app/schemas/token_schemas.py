@@ -12,13 +12,23 @@ class TokenCreate(BaseModel):
     counter_id: int
     latitude: float
     longitude: float
-
 class TokenResponse(BaseModel):
     token_number: int  # Ensure this is updated to match the new type
     user_id: int
     service_id: int
     counter_id: int
+    distance: float  # Ensure this is set to float
+    duration: int
     status: str
+
+    class Config:
+        orm_mode = True
+
+class UpdatedTokenResponse(BaseModel):
+    user: str
+    service_name: str
+    duration: str
+    token_no: int
 
     class Config:
         orm_mode = True

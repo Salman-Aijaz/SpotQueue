@@ -24,7 +24,7 @@ def create_counter(db: Session, counter: CounterCreate):
         if existing_counter:
             raise HTTPException(status_code=400, detail="Counter already exists")
 
-        new_counter = Counter(counter_number=counter.counter_number, service_id=service.id, user_id=counter.user_id)
+        new_counter = Counter(counter_number=counter.counter_number, service_id=service.id)
         db.add(new_counter)
         db.commit()
         db.refresh(new_counter)

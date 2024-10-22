@@ -10,6 +10,5 @@ class Counter(Base):
     service_id=Column(Integer,ForeignKey("services.id"),nullable=False)
 
     service=relationship("Service",back_populates="counters")
-    user = relationship("User",back_populates="counters")
     tokens = relationship("Token", back_populates="counter")
 

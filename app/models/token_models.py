@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Float, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Boolean, Column, Float, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from app.db.database import Base 
@@ -17,6 +17,8 @@ class Token(Base):
     
     distance = Column(Float,nullable=True)
     duration = Column(Integer,nullable=True)
+
+    reach_out = Column(Boolean, default=False)  # Default to False
 
     # Foreign keys
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Link to the User table

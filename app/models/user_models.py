@@ -18,5 +18,4 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     role = Column(String, default="User")
 
-    counters = relationship("Counter", back_populates="user")
     tokens = relationship("Token", back_populates="user") 

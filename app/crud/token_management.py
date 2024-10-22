@@ -8,6 +8,7 @@ from sqlalchemy import func,select
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException
 from app.utils.get_distance import get_distance
+from app.core.config import settings
 
 def create_token_record(db: Session, token_data: TokenCreate, duration_text: str, distance_text: str):
     try:
@@ -23,6 +24,18 @@ def create_token_record(db: Session, token_data: TokenCreate, duration_text: str
         ).count()
 
         queue_position = existing_token_count+1
+
+        # Check if the user's coordinates match the fixed service coordinates
+        service_latitude, service_longitude = settings.FIXED_COORDINATES[0], settings.FIXED_COORDINATES[1]
+        exact_location_match = (float(token_data.latitude) == service_latitude) and (float(token_data.longitude) == service_longitude)
+        
+        if exact_location_match:
+            reach_out = True
+        else:
+            reach_out = float(distance_text) < 2 or int(duration_text) < 2  # Adjust as needed for your unit
+       
+        print(f"Reach Out Condition: {reach_out}")
+
         new_token = Token(
             token_number=new_token_number,  # Increment the max token number
             user_id=token_data.user_id,
@@ -32,7 +45,8 @@ def create_token_record(db: Session, token_data: TokenCreate, duration_text: str
             longitude=token_data.longitude,
             queue_position=queue_position,
             distance = distance_text,
-            duration=duration_text
+            duration=duration_text,
+            reach_out=reach_out
         )
         db.add(new_token)
         db.commit()
@@ -97,3 +111,45 @@ def get_token_by_counter_id(counter_id:int,db:Session):
         raise HTTPException(status_code=500, detail=f"Database error occurred: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred while fetching tokens: {e}")
+
+def get_token_by_user_id(db:Session,user_id:int):
+    try:
+        return db.query(Token).filter(Token.user_id==user_id).first()
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500,detail=f"Database Error: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=f"An unexpected error occurred {e}")
+
+def update_token_distance_duration(db:Session,token:Token,latitude:float,longitude:float, duration_value: int, distance_value: int):
+    try:
+        token.latitude=latitude
+        token.longitude = longitude
+        token.duration = duration_value
+        token.distance= distance_value
+
+        db.commit()
+        db.refresh(token)
+        return token
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500,detail=f"Database error {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=f"An unexpected error occurred {e}")
+    
+def check_reach_out(latitude: float, longitude: float, distance: int, duration: int) -> bool:
+    try:
+        # Validate latitude and longitude (example: check if they are within valid GPS ranges)
+        if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+            raise HTTPException(status_code=400, detail="Invalid latitude or longitude values.")
+
+        # Validate distance and duration (example: they should be non-negative)
+        if distance < 0 or duration < 0:
+            raise HTTPException(status_code=400, detail="Distance and duration must be non-negative.")
+        
+        service_coordinate = (settings.FIXED_COORDINATES[0], settings.FIXED_COORDINATES[1])
+        user_at_service_location = (latitude, longitude) == service_coordinate
+        return user_at_service_location and (distance < 2) and (duration < 2)
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=f"Unexpected error occurred: {e}")

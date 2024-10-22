@@ -19,9 +19,15 @@ async def get_distance(user_latitude: float, user_longitude: float):
             distance_text = data["rows"][0]["elements"][0]["distance"]["text"]
             duration_text = data["rows"][0]["elements"][0]["duration"]["text"]  
 
-            distance_value =  float(re.search(r"[\d.]+", distance_text).group()) 
-            duration_value = int(re.search(r"\d+", duration_text).group())
-
+            distance_value =  float(re.search(r"[\d.]+", distance_text).group()) if re.search(r"[\d.]+", distance_text) else 0.0
+            duration_match = re.search(r'(?:(\d+)\s*hour[s]?)?\s*(?:(\d+)\s*min[s]?)?', duration_text) if re.search(r"\d+", duration_text) else 0
+            if duration_match:
+                hours = int(duration_match.group(1)) if duration_match.group(1) else 0
+                minutes = int(duration_match.group(2)) if duration_match.group(2) else 0
+                duration_value = (hours * 60) + minutes  # Convert total duration to minutes
+            else:
+                raise HTTPException(status_code=500, detail="Error processing duration data.")
+            
             return duration_value, distance_value
         else:
             raise HTTPException(status_code=500, detail="Error fetching distance data.")

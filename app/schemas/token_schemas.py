@@ -24,11 +24,7 @@ class TokenResponse(BaseModel):
     class Config:
         orm_mode = True
 
-class UpdatedTokenResponse(BaseModel):
-    user: str
-    service_name: str
-    duration: str
-    token_no: int
-
-    class Config:
-        orm_mode = True
+class UpdateTokenRequest(BaseModel):
+    user_id:int
+    latitude:float
+    longitude:float

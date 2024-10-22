@@ -1,16 +1,14 @@
 from fastapi import APIRouter,Depends,HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from app.crud.counter_management import get_counter_by_service_id
-from app.crud.services_management import get_service_by_name
-from app.schemas.token_schemas import TokenCreate,TokenRequest, TokenResponse
-from app.schemas.user_schemas import  UserIn,UserCreate,Token
+from app.schemas.token_schemas import TokenRequest, TokenResponse, UpdateTokenRequest
+from app.schemas.user_schemas import UserIn,UserCreate,Token
 from app.db.database import get_db
 from app.utils.auth import get_password_hash,verify_password,create_access_token
 from app.crud.user_management import create_user,get_user_by_email,get_all_users,get_user_by_username
 from app.core.config import settings    
-from app.crud.token_management import create_token_record, generate_token
-
+from app.crud.token_management import check_reach_out, generate_token, get_token_by_user_id, update_token_distance_duration
+from app.utils.get_distance import get_distance
 
 router = APIRouter()
 
@@ -145,3 +143,48 @@ async def generate_token_for_user(request: TokenRequest, db: Session = Depends(g
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating token: {e}")
+    
+@router.put("/new-location",response_model=TokenResponse)
+async def update_eta(request:UpdateTokenRequest,db:Session = Depends(get_db)):
+    try:
+        token = get_token_by_user_id(db, request.user_id)
+        if not token:
+            raise HTTPException(status_code=400,detail="Token Not Found")
+        
+        # Get the new distance and duration
+        duration_value,distance_value=await get_distance(request.latitude,request.longitude)
+
+        # Check if the user has reached the service location
+        reach_out = check_reach_out(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            distance=distance_value,
+            duration=duration_value
+        )
+        
+        # Update the token with the new distance and duration
+        updated_token = update_token_distance_duration(
+            db=db,
+            token=token,
+            latitude=request.latitude,
+            longitude=request.longitude,
+            duration_value=duration_value,
+            distance_value=distance_value
+        )   
+        updated_token.reach_out = reach_out
+        db.commit()
+        db.refresh(updated_token)
+
+        return TokenResponse(
+            token_number = updated_token.token_number,
+            user_id = updated_token.user_id,
+            service_id = updated_token.service_id,
+            counter_id= updated_token.counter_id,
+            distance=updated_token.distance,
+            duration = updated_token.duration,
+            status ="ETA Updated Successfully"
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=f"Error Updating ETA: {e}")

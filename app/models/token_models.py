@@ -19,6 +19,7 @@ class Token(Base):
     duration = Column(Integer,nullable=True)
 
     reach_out = Column(Boolean, default=False)  # Default to False
+    work_status = Column(String, default="pending")
 
     # Foreign keys
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Link to the User table

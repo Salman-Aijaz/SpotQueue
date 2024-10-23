@@ -46,7 +46,8 @@ def create_token_record(db: Session, token_data: TokenCreate, duration_text: str
             queue_position=queue_position,
             distance = distance_text,
             duration=duration_text,
-            reach_out=reach_out
+            reach_out=reach_out,
+            work_status="pending"
         )
         db.add(new_token)
         db.commit()

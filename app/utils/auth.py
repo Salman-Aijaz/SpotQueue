@@ -4,6 +4,7 @@ from datetime import datetime,timedelta
 from app.core.config import settings
 from fastapi import HTTPException
 from app.core.config import settings
+from typing import Optional
 
 # Password encryption context using bcrypt algorithm
 pwd_context= CryptContext(schemes=["bcrypt"],deprecated="auto")
@@ -47,7 +48,7 @@ def verify_password(plain_password,hashed_password):
         settings.logger.error("Error verifying password: %s", e)
         raise HTTPException(status_code=500,detail=f"Internal Server Error: Error verifying password. {e}")
 
-def create_access_token(data:dict,expires_delta:timedelta|None =None):
+def create_access_token(data:dict,expires_delta: Optional[timedelta] = None):
     """
         Creates a JWT access token with an optional expiration time.
 

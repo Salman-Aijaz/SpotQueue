@@ -9,6 +9,7 @@ from app.crud.user_management import create_user,get_user_by_email,get_all_users
 from app.core.config import settings    
 from app.crud.token_management import check_reach_out, generate_token, get_token_by_user_id, update_token_distance_duration
 from app.utils.get_distance import get_distance
+from app.db.database import redis_client
 
 router = APIRouter()
 
@@ -129,6 +130,7 @@ async def generate_token_for_user(request: TokenRequest, db: Session = Depends(g
     try:
         token = await generate_token(request, db)
         
+        redis_client.rpush("user_queue",str(token.user_id))
         # Return a TokenResponse
         return TokenResponse(
             token_number=token.token_number,
@@ -137,7 +139,8 @@ async def generate_token_for_user(request: TokenRequest, db: Session = Depends(g
             counter_id=token.counter_id,
             distance = token.distance,
             duration = token.duration,
-            status="Token generated successfully"
+            status="Token generated successfully",
+            work_status=token.work_status 
         )
     except HTTPException as e:
         raise e
@@ -182,7 +185,8 @@ async def update_eta(request:UpdateTokenRequest,db:Session = Depends(get_db)):
             counter_id= updated_token.counter_id,
             distance=updated_token.distance,
             duration = updated_token.duration,
-            status ="ETA Updated Successfully"
+            status ="ETA Updated Successfully",
+            work_status=updated_token.work_status
         )
     except HTTPException as e:
         raise e

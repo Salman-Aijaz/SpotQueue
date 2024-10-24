@@ -33,8 +33,6 @@ def create_token_record(db: Session, token_data: TokenCreate, duration_text: str
             reach_out = True
         else:
             reach_out = float(distance_text) < 2 or int(duration_text) < 2  # Adjust as needed for your unit
-       
-        print(f"Reach Out Condition: {reach_out}")
 
         new_token = Token(
             token_number=new_token_number,  # Increment the max token number

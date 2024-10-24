@@ -12,3 +12,6 @@ class CounterResponse(BaseModel):
 
     class Config:
         orm_mode = True
+
+class NextPersonRequest(BaseModel):
+    user_id: int

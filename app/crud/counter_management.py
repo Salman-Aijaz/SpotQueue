@@ -1,4 +1,5 @@
 
+import asyncio
 from sqlalchemy.orm import Session
 from app.models.counter_models import Counter
 from app.models.token_models import Token
@@ -96,9 +97,38 @@ async def process_next_person(user_id: int, db: Session):
 
         # Decode and clean up user IDs from Redis
         user_queue = [
-            int(user_id_str.decode('utf-8'))  # Decode byte strings to integers
+            int(user_id_str.decode('utf-8').strip("b'"))
             for user_id_str in user_queue
         ]
+
+        # Wait for 1 minute
+        await asyncio.sleep(60)
+
+        # Determine which user should be next based on distance and duration
+        next_user_id = None
+        next_user_distance = float('inf')
+        next_user_duration = float('inf')
+
+        for user_id in user_queue:
+            user_token = db.query(Token).filter(Token.user_id == user_id).first()
+            if user_token:
+                # Check distance and duration
+                if (user_token.distance < next_user_distance or 
+                   (user_token.distance == next_user_distance and user_token.duration < next_user_duration)):
+                    next_user_id = user_id
+                    next_user_distance = user_token.distance
+                    next_user_duration = user_token.duration
+
+        if next_user_id is not None:
+            logger.info(f"Next user assigned: User ID {next_user_id}")
+            next_token = db.query(Token).filter(Token.user_id == next_user_id).first()
+            if next_token:  # Update status
+                next_token.queue_position = 1  # Update position
+                db.commit()
+                db.refresh(next_token)
+                return {"message": f"User {next_user_id} is now being served."}
+        else:
+            logger.info("No users left in the queue.")
 
         # Rearrange queue positions if there are remaining users
         if user_queue:

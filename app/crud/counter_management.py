@@ -74,7 +74,6 @@ async def process_next_person(user_id: int, db: Session):
 
         # Get the current token for the user
         token = db.query(Token).filter(Token.user_id == user_id).first()
-
         if not token:
             logger.error(f"User {user_id} not found in the queue.")
             raise HTTPException(status_code=400, detail="User not found in the queue.")
@@ -95,15 +94,23 @@ async def process_next_person(user_id: int, db: Session):
         user_queue = redis_client.lrange("user_queue", 0, -1)
         logger.info(f"Queue after removal: {user_queue}")
 
+        # Decode and clean up user IDs from Redis
+        user_queue = [
+            int(user_id_str.decode('utf-8'))  # Decode byte strings to integers
+            for user_id_str in user_queue
+        ]
+
         # Rearrange queue positions if there are remaining users
         if user_queue:
-            for idx, user_id_str in enumerate(user_queue):
-                db_token = db.query(Token).filter(Token.user_id == int(user_id_str)).first()
+            for idx, user_id in enumerate(user_queue):
+                db_token = db.query(Token).filter(Token.user_id == user_id).first()
                 if db_token:
                     new_position = idx + 1
                     db_token.queue_position = new_position  # Assign the new position (1-based index)
-                    db.commit()
-                    logger.info(f"Updated user {user_id_str} to queue position {new_position}")
+                    # Set db_token to expire to ensure refreshed values in db session
+                    db.expire(db_token)
+                    logger.info(f"Updated user {user_id} to queue position {new_position}")
+            db.commit()  # Commit once after all updates
         else:
             logger.info("Queue is empty after removal.")
 

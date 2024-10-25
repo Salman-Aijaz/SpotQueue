@@ -12,6 +12,19 @@ from app.core.config import settings
 
 # 1. Create a new counter
 def create_counter(db: Session, counter: CounterCreate):
+    """
+        Create a new counter for a given service.
+
+        Args:
+            db (Session): The database session.
+            counter (CounterCreate): The counter creation schema containing the counter number and service name.
+
+        Returns:
+            Counter: The created counter object.
+
+        Raises:
+            HTTPException: If the service is not found, the counter already exists, or if a database error occurs.
+    """
     try:
         # Get the service_id by service_name
         service = db.query(Service).filter(Service.service_name == counter.service_name).first()
@@ -42,6 +55,18 @@ def create_counter(db: Session, counter: CounterCreate):
 
 # 2. Retrieve all counters
 def get_all_counters(db: Session):
+    """
+        Retrieve all counters from the database.
+
+        Args:
+            db (Session): The database session.
+
+        Returns:
+            list[Counter]: A list of all counters.
+
+        Raises:
+            HTTPException: If no counters are found or if a database error occurs.
+    """
     try:
         counters = db.query(Counter).all()
         if not counters:
@@ -52,6 +77,19 @@ def get_all_counters(db: Session):
 
 # 3. Retrieve a counter by ID
 def get_counter_by_id(db: Session, counter_id: int):
+    """
+        Retrieve a counter by its ID.
+
+        Args:
+            db (Session): The database session.
+            counter_id (int): The ID of the counter to retrieve.
+
+        Returns:
+            Counter: The counter object.
+
+        Raises:
+            HTTPException: If the counter is not found or if a database error occurs.
+    """
     try:
         counter = db.query(Counter).filter(Counter.id == counter_id).first()
         if not counter:
@@ -61,6 +99,19 @@ def get_counter_by_id(db: Session, counter_id: int):
         raise HTTPException(status_code=500, detail=f"Error while fetching the counter: {e}")
 
 def get_counter_by_service_id(db: Session, service_id: int):
+    """
+        Retrieve a counter by the associated service ID.
+
+        Args:
+            db (Session): The database session.
+            service_id (int): The ID of the service associated with the counter.
+
+        Returns:
+            int or None: The ID of the counter if found, otherwise None.
+
+        Raises:
+            HTTPException: If a database error occurs.
+    """
     try:
         counter = db.query(Counter).filter(Counter.service_id == service_id).first()
         return counter.id if counter else None  # Return counter id or None if not found
@@ -68,6 +119,24 @@ def get_counter_by_service_id(db: Session, service_id: int):
         raise HTTPException(status_code=500, detail=f"Error in get_counter_by_service_id: {e}")
     
 async def process_next_person(user_id: int, db: Session):
+    """
+        Process the next person in the queue for a given user ID.
+
+        This function retrieves the current user's token, marks their work as completed, and removes them from the Redis queue.
+        It then determines the next user to be served based on their distance and duration in the queue, updating the database accordingly.
+
+        Args:
+            user_id (int): The ID of the user to process.
+            db (Session): The database session.
+
+        Returns:
+            dict: A message indicating the next user being served or that the queue is empty.
+
+        Raises:
+            HTTPException:
+                - If the user is not found in the queue (400).
+                - If a database error occurs while fetching or updating data (500).
+    """
     try:
         settings.logger.info(f"Processing next person for user ID: {user_id}")
 

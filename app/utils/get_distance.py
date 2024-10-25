@@ -4,6 +4,37 @@ import httpx
 import re
 
 async def get_distance(user_latitude: float, user_longitude: float):
+    """
+        Retrieve the distance and duration between a fixed location and the user's coordinates using a distance matrix API.
+
+        - **user_latitude** (float): The latitude of the user's location.
+        - **user_longitude** (float): The longitude of the user's location.
+
+        Process:
+        - Constructs the API request URL using the fixed coordinates from settings and the provided user's latitude and longitude.
+        - Sends an asynchronous HTTP request to the distance matrix API to obtain travel distance and duration.
+        - Parses and extracts the distance (in kilometers or miles) and duration (in minutes) from the API response.
+
+        Returns:
+        - A tuple (duration_value, distance_value):
+            - **duration_value** (float): The total travel duration in minutes.
+            - **distance_value** (float): The travel distance in the provided unit (usually kilometers or miles).
+
+        Raises:
+        - HTTPException: Raised in various scenarios, including:
+            - If there is an issue with the API response status.
+            - If distance or duration data is missing or improperly formatted.
+            - If an error occurs while establishing a connection with the API.
+            - For unexpected errors encountered during response processing.
+
+        Error Handling:
+        - **httpx.RequestError**: Handles network or connection-related errors, returning a 500 error.
+        - **httpx.HTTPStatusError**: Catches unsuccessful HTTP responses, returning the specific HTTP status code.
+        - **ValueError / AttributeError**: Handles data extraction errors for distance and duration values.
+        - **Exception**: Catches and raises any unexpected errors, returning a 500 error.
+
+    """
+
     origin = f"{settings.FIXED_COORDINATES[0]},{settings.FIXED_COORDINATES[1]}"
     destination = f"{user_latitude},{user_longitude}"
 

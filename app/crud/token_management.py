@@ -11,6 +11,27 @@ from app.utils.get_distance import get_distance
 from app.core.config import settings
 
 def create_token_record(db: Session, token_data: TokenCreate, duration_text: str, distance_text: str):
+    """
+        Create a new token record in the database.
+
+        - **db**: The database session used to execute queries.
+        - **token_data**: A `TokenCreate` object containing user and service details.
+        - **duration_text**: A string representing the duration for which the token is valid.
+        - **distance_text**: A string representing the distance from the service location.
+
+        Logic:
+        - Generates a unique token number based on the maximum existing token number in the database.
+        - Checks how many tokens already exist for the given service and counter, determining the queue position.
+        - Validates the user's coordinates against the fixed service coordinates.
+        - Creates and commits a new token record to the database.
+
+        Returns:
+        - The newly created token object.
+
+        Error Handling:
+        - Raises a 500 error for any SQLAlchemy-related issues during the database transaction.
+        - Raises a 500 error for any unexpected exceptions.
+    """
     try:
         # Generate a unique token number based on the maximum existing token_number
         token_number = db.query(func.max(Token.token_number)).scalar() or 0
@@ -60,6 +81,26 @@ def create_token_record(db: Session, token_data: TokenCreate, duration_text: str
 
 
 async def generate_token(request: TokenRequest, db: Session):
+    """
+        Generate a token based on user request.
+
+        - **request**: A `TokenRequest` object containing user and service information.
+        - **db**: The database session used to execute queries.
+
+        Logic:
+        - Retrieves the user by email from the database.
+        - Fetches the service by name.
+        - Obtains the counter ID associated with the service.
+        - Calculates distance and duration to the service location.
+        - Creates a new token record using `create_token_record`.
+
+        Returns:
+        - The created token object.
+
+        Error Handling:
+            - Raises a 400 error if the user or service is not found.
+            - Raises a 500 error for any unexpected exceptions during token generation.
+    """
     try:
         # Get user by email
         user = get_user_by_email(db, request.email)
@@ -101,6 +142,22 @@ async def generate_token(request: TokenRequest, db: Session):
 
 
 def get_token_by_counter_id(counter_id:int,db:Session):
+    """
+        Retrieve all tokens associated with a specific counter ID.
+
+        - **counter_id**: The ID of the counter for which tokens are being retrieved.
+        - **db**: The database session used to execute queries.
+
+        Logic:
+            - Executes a query to fetch all tokens related to the specified counter ID.
+
+        Returns:
+            - A list of tokens if found, otherwise returns None.
+
+        Error Handling:
+            - Raises a 500 error for any SQLAlchemy-related issues during the query.
+            - Raises a 500 error for any unexpected exceptions.
+    """
     try:
         result= db.execute(select(Token).filter(Token.counter_id == counter_id)).scalars().all()
         if not result:
@@ -112,6 +169,23 @@ def get_token_by_counter_id(counter_id:int,db:Session):
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred while fetching tokens: {e}")
 
 def get_token_by_user_id(db:Session,user_id:int):
+    """
+        Retrieve the token associated with a specific user ID.
+
+        - **db**: The database session used to execute queries.
+        - **user_id**: The ID of the user whose token is being retrieved.
+
+        Logic:
+            - Executes a query to fetch the token related to the specified user ID.
+
+        Returns:
+            - The token if found, otherwise returns None.
+
+        Error Handling:
+            - Raises a 500 error for any SQLAlchemy-related issues during the query.
+            - Raises a 500 error for any unexpected exceptions.
+    """
+
     try:
         return db.query(Token).filter(Token.user_id==user_id).first()
     except SQLAlchemyError as e:
@@ -120,6 +194,27 @@ def get_token_by_user_id(db:Session,user_id:int):
         raise HTTPException(status_code=500,detail=f"An unexpected error occurred {e}")
 
 def update_token_distance_duration(db:Session,token:Token,latitude:float,longitude:float, duration_value: int, distance_value: int):
+    """
+        Update the distance and duration for an existing token.
+
+        - **db**: The database session used to execute queries.
+        - **token**: The token object to be updated.
+        - **latitude**: The new latitude to be set for the token.
+        - **longitude**: The new longitude to be set for the token.
+        - **duration_value**: The new duration value to be set for the token.
+        - **distance_value**: The new distance value to be set for the token.
+
+        Logic:
+            - Updates the token's latitude, longitude, duration, and distance fields.
+            - Commits the changes to the database.
+
+        Returns:
+            - The updated token object.
+
+        Error Handling:
+            - Raises a 500 error for any SQLAlchemy-related issues during the update.
+            - Raises a 500 error for any unexpected exceptions.
+    """
     try:
         token.latitude=latitude
         token.longitude = longitude
@@ -136,6 +231,25 @@ def update_token_distance_duration(db:Session,token:Token,latitude:float,longitu
         raise HTTPException(status_code=500,detail=f"An unexpected error occurred {e}")
     
 def check_reach_out(latitude: float, longitude: float, distance: int, duration: int) -> bool:
+    """
+        Check if the user is in reach of the service based on their coordinates, distance, and duration.
+
+            - **latitude**: The latitude of the user's location.
+            - **longitude**: The longitude of the user's location.
+            - **distance**: The distance from the service location.
+            - **duration**: The duration of the user's travel.
+
+            Logic:  
+            - Validates the latitude and longitude values to ensure they are within valid ranges.
+            - Validates that distance and duration are both non-negative.
+            - Determines if the user is within reach based on predefined thresholds.
+
+            Returns:
+            - True if the user is considered to be in reach; False otherwise.
+
+            Error Handling:
+                - Raises a ValueError for invalid coordinate values.
+    """
     try:
         # Validate latitude and longitude (example: check if they are within valid GPS ranges)
         if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):

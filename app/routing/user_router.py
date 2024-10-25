@@ -127,6 +127,31 @@ def get_user_by_name(name:str,db:Session = Depends(get_db)):
 
 @router.post("/token", response_model=TokenResponse)
 async def generate_token_for_user(request: TokenRequest, db: Session = Depends(get_db)):
+    """
+        Generate a service token for a user.
+
+        This endpoint generates a new token for a user, which represents their place in a queue for a specified service.
+        The token includes details such as the user ID, service ID, and estimated time to reach the service location.
+        The generated token is also stored in a Redis queue for further processing.
+
+        Parameters:
+            - request (TokenRequest): The token request details, which include user ID, service ID, and counter ID.
+            - db (Session, optional): The database session, obtained as a dependency from `get_db`.
+
+        Raises:
+            - HTTPException: Raised if an error occurs during token generation (status code 500).
+
+        Returns:
+            - TokenResponse: The response object containing token information, including:
+                - token_number (str): Unique token number for the user.
+                - user_id (int): ID of the user to whom the token is issued.
+                - service_id (int): ID of the service for which the token is generated.
+                - counter_id (int): ID of the counter assigned to the token.
+                - distance (float): Distance of the user from the service location.
+                - duration (float): Estimated time in minutes to reach the service location.
+                - status (str): Status message for the token generation process.
+                - work_status (str): Current work status of the token.
+    """
     try:
         token = await generate_token(request, db)
         
@@ -149,6 +174,31 @@ async def generate_token_for_user(request: TokenRequest, db: Session = Depends(g
     
 @router.put("/new-location",response_model=TokenResponse)
 async def update_eta(request:UpdateTokenRequest,db:Session = Depends(get_db)):
+    """
+        Update Estimated Time of Arrival (ETA) for a user’s token based on their new location.
+
+        This endpoint updates a user's token details with a new estimated time of arrival and distance to the service
+        location, based on the updated latitude and longitude provided by the user. The update reflects the latest user
+        proximity information and determines if the user has reached the service location.
+
+        Parameters:
+            - request (UpdateTokenRequest): Contains user ID, updated latitude, and longitude.
+            - db (Session, optional): The database session, obtained as a dependency from `get_db`.
+
+        Raises:
+            - HTTPException: Raised if the user’s token is not found (status code 400) or if an error occurs (status code 500).
+
+        Returns:
+            - TokenResponse: The response object containing updated token information, including:
+                - token_number (str): Unique token number for the user.
+                - user_id (int): ID of the user whose ETA is updated.
+                - service_id (int): ID of the service associated with the token.
+                - counter_id (int): ID of the counter associated with the token.
+                - distance (float): Updated distance of the user from the service location.
+                - duration (float): Updated estimated time in minutes to reach the service location.
+                - status (str): Status message for the update process.
+                - work_status (str): Updated work status of the token.
+    """
     try:
         token = get_token_by_user_id(db, request.user_id)
         if not token:

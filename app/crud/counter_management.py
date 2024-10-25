@@ -8,9 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from app.models.service_models import Service
 from app.db.database import redis_client
-import logging
-
-logger = logging.getLogger(__name__)
+from app.core.config import settings
 
 # 1. Create a new counter
 def create_counter(db: Session, counter: CounterCreate):
@@ -71,12 +69,12 @@ def get_counter_by_service_id(db: Session, service_id: int):
     
 async def process_next_person(user_id: int, db: Session):
     try:
-        logger.info(f"Processing next person for user ID: {user_id}")
+        settings.logger.info(f"Processing next person for user ID: {user_id}")
 
         # Get the current token for the user
         token = db.query(Token).filter(Token.user_id == user_id).first()
         if not token:
-            logger.error(f"User {user_id} not found in the queue.")
+            settings.logger.error(f"User {user_id} not found in the queue.")
             raise HTTPException(status_code=400, detail="User not found in the queue.")
         
         # Mark user's work as completed and clear their queue position
@@ -85,15 +83,15 @@ async def process_next_person(user_id: int, db: Session):
         db.commit()
         db.refresh(token)
 
-        logger.info(f"User {user_id}'s work is completed. Queue position set to 0.")
+        settings.logger.info(f"User {user_id}'s work is completed. Queue position set to 0.")
 
         # Remove user_id from the Redis queue
         redis_client.lrem("user_queue", 0, str(user_id))  # Ensure the user_id is a string
-        logger.info(f"User {user_id} removed from Redis queue.")
+        settings.logger.info(f"User {user_id} removed from Redis queue.")
 
         # Log the queue after removal
         user_queue = redis_client.lrange("user_queue", 0, -1)
-        logger.info(f"Queue after removal: {user_queue}")
+        settings.logger.info(f"Queue after removal: {user_queue}")
 
         # Decode and clean up user IDs from Redis
         user_queue = [
@@ -120,7 +118,7 @@ async def process_next_person(user_id: int, db: Session):
                     next_user_duration = user_token.duration
 
         if next_user_id is not None:
-            logger.info(f"Next user assigned: User ID {next_user_id}")
+            settings.logger.info(f"Next user assigned: User ID {next_user_id}")
             next_token = db.query(Token).filter(Token.user_id == next_user_id).first()
             if next_token:  # Update status
                 next_token.queue_position = 1  # Update position
@@ -128,7 +126,7 @@ async def process_next_person(user_id: int, db: Session):
                 db.refresh(next_token)
                 return {"message": f"User {next_user_id} is now being served."}
         else:
-            logger.info("No users left in the queue.")
+            settings.logger.info("No users left in the queue.")
 
         # Rearrange queue positions if there are remaining users
         if user_queue:
@@ -139,13 +137,13 @@ async def process_next_person(user_id: int, db: Session):
                     db_token.queue_position = new_position  # Assign the new position (1-based index)
                     # Set db_token to expire to ensure refreshed values in db session
                     db.expire(db_token)
-                    logger.info(f"Updated user {user_id} to queue position {new_position}")
+                    settings.logger.info(f"Updated user {user_id} to queue position {new_position}")
             db.commit()  # Commit once after all updates
         else:
-            logger.info("Queue is empty after removal.")
+            settings.logger.info("Queue is empty after removal.")
 
         return {"message": f"User {user_id} marked completed and queue rearranged."}
 
     except Exception as e:
-        logger.error(f"Error processing user {user_id}: {str(e)}")
+        settings.logger.error(f"Error processing user {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error processing next person: {str(e)}")

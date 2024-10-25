@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 import zoneinfo
-# from app.main import app
+from app.main import app
 import logging
 
 load_dotenv()
@@ -10,7 +10,7 @@ load_dotenv()
 class Settings:
     DATABASE_URL =os.getenv("DATABASE_URL")
     DISTANCE_MATRIX_API_KEY=os.getenv("DISTANCE_MATRIX_API_KEY")
-    # client = TestClient(app)
+    client = TestClient(app)
     SECRET_KEY=os.getenv("SECRET_KEY")
     ALGORITHM=os.getenv("ALGORITHM")
     ACCESS_TOKEN_EXPIRE_MINUTES = 30

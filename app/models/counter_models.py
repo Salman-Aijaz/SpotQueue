@@ -11,4 +11,3 @@ class Counter(Base):
 
     service=relationship("Service",back_populates="counters")
     tokens = relationship("Token", back_populates="counter")
-

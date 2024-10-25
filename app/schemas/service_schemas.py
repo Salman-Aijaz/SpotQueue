@@ -7,7 +7,6 @@ class ServiceCreate(BaseModel):
     service_entry_time:time
     service_end_time:time
 
-
 # SCHEMAS FOR RETURNING A SERVICE
 class ServiceResponse(BaseModel):
     id:int

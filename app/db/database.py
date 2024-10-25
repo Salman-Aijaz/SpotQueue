@@ -15,13 +15,6 @@ redis_client = redis.StrictRedis(host='redis', port=6379, db=0)
 # Base class for models
 Base = declarative_base()
 
-# Optionally, check if Redis is running
-try:
-    redis_client.ping()
-    settings.logger.info("Connected to Redis")
-except redis.ConnectionError:
-    settings.logger.error("Could not connect to Redis")
-
 # Function to initialize the database with error handling
 def init_db():
     try:

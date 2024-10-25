@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
-
 class CounterCreate(BaseModel):
     counter_number: int
     service_name: str

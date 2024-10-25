@@ -5,11 +5,6 @@ from app.db.database import get_db
 from app.schemas.counter_schemas import CounterCreate, CounterResponse,NextPersonRequest
 from app.crud.counter_management import create_counter, get_all_counters, get_counter_by_id, process_next_person
 from fastapi import HTTPException
-from app.models.token_models import Token
-from app.db.database import redis_client
-import logging
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter()
 

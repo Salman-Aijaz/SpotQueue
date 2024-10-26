@@ -11,6 +11,27 @@ from app.utils.get_distance import get_distance
 from app.core.config import settings
 
 def create_token_record(db: Session, token_data: TokenCreate, duration_text: str, distance_text: str):
+    """
+        Create a new token record in the database.
+
+        - **db**: The database session used to execute queries.
+        - **token_data**: A `TokenCreate` object containing user and service details.
+        - **duration_text**: A string representing the duration for which the token is valid.
+        - **distance_text**: A string representing the distance from the service location.
+
+        Logic:
+        - Generates a unique token number based on the maximum existing token number in the database.
+        - Checks how many tokens already exist for the given service and counter, determining the queue position.
+        - Validates the user's coordinates against the fixed service coordinates.
+        - Creates and commits a new token record to the database.
+
+        Returns:
+        - The newly created token object.
+
+        Error Handling:
+        - Raises a 500 error for any SQLAlchemy-related issues during the database transaction.
+        - Raises a 500 error for any unexpected exceptions.
+    """
     try:
         # Generate a unique token number based on the maximum existing token_number
         token_number = db.query(func.max(Token.token_number)).scalar() or 0
@@ -33,8 +54,6 @@ def create_token_record(db: Session, token_data: TokenCreate, duration_text: str
             reach_out = True
         else:
             reach_out = float(distance_text) < 2 or int(duration_text) < 2  # Adjust as needed for your unit
-       
-        print(f"Reach Out Condition: {reach_out}")
 
         new_token = Token(
             token_number=new_token_number,  # Increment the max token number
@@ -46,31 +65,55 @@ def create_token_record(db: Session, token_data: TokenCreate, duration_text: str
             queue_position=queue_position,
             distance = distance_text,
             duration=duration_text,
-            reach_out=reach_out
+            reach_out=reach_out,
+            work_status="pending"
         )
         db.add(new_token)
         db.commit()
         db.refresh(new_token)
+        settings.logger.info(f"Token {new_token_number} created for user {token_data.user_id}.")
         return new_token
     except SQLAlchemyError as e:
         db.rollback() 
+        settings.logger.exception(f"Database error while creating token record {e}.")
         raise HTTPException(status_code=500,detail=f"Database error occurred: {e}")
     except Exception as e:
+        settings.logger.exception(f"Unexpected error occurred while creating token record {e}.")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
     
-
-
 async def generate_token(request: TokenRequest, db: Session):
+    """
+        Generate a token based on user request.
+
+        - **request**: A `TokenRequest` object containing user and service information.
+        - **db**: The database session used to execute queries.
+
+        Logic:
+        - Retrieves the user by email from the database.
+        - Fetches the service by name.
+        - Obtains the counter ID associated with the service.
+        - Calculates distance and duration to the service location.
+        - Creates a new token record using `create_token_record`.
+
+        Returns:
+        - The created token object.
+
+        Error Handling:
+            - Raises a 400 error if the user or service is not found.
+            - Raises a 500 error for any unexpected exceptions during token generation.
+    """
     try:
         # Get user by email
         user = get_user_by_email(db, request.email)
         if not user:
-            raise HTTPException(status_code=400, detail="User not found")
+            settings.logger.warning(f"User with email {request.email} not found.")
+            raise HTTPException(status_code=400, detail=f"User with email {request.email} not found.")
 
         # Get service by name
         service = get_service_by_name(db, request.service_name)
         if not service:
-            raise HTTPException(status_code=400, detail="Service not found")
+            settings.logger.warning(f"Service {request.service_name} not found.")
+            raise HTTPException(status_code=400, detail=f"Service {request.service_name} not found.")
 
         # Access the service ID from the dictionary
         service_id = service["id"]
@@ -78,6 +121,7 @@ async def generate_token(request: TokenRequest, db: Session):
         # Get counter responsible for this service
         counter_id = get_counter_by_service_id(db, service_id)
         if counter_id is None:
+            settings.logger.warning(f"No counter available for service {service_id}.")
             raise HTTPException(status_code=400, detail="No counter available for this service")
 
         duration_text, distance_text = await get_distance(request.latitude, request.longitude)
@@ -98,29 +142,92 @@ async def generate_token(request: TokenRequest, db: Session):
     except HTTPException as e:
         raise e  # Re-raise HTTPExceptions
     except Exception as e:
+        settings.logger.exception(f"An unexpected error occurred while generating token: {e}")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred while generating token: {e}")
 
 
 def get_token_by_counter_id(counter_id:int,db:Session):
+    """
+        Retrieve all tokens associated with a specific counter ID.
+
+        - **counter_id**: The ID of the counter for which tokens are being retrieved.
+        - **db**: The database session used to execute queries.
+
+        Logic:
+            - Executes a query to fetch all tokens related to the specified counter ID.
+
+        Returns:
+            - A list of tokens if found, otherwise returns None.
+
+        Error Handling:
+            - Raises a 500 error for any SQLAlchemy-related issues during the query.
+            - Raises a 500 error for any unexpected exceptions.
+    """
     try:
         result= db.execute(select(Token).filter(Token.counter_id == counter_id)).scalars().all()
         if not result:
+            settings.logger.info(f"No tokens found for counter ID {counter_id}.")
             return None
         return result
     except SQLAlchemyError as e:
-        raise HTTPException(status_code=500, detail=f"Database error occurred: {e}")
+        settings.logger.exception(f"Database error while retrieving tokens by counter ID {e}.")
+        raise HTTPException(status_code=500, detail=f"Database error while retrieving tokens by counter ID {e}.")
     except Exception as e:
+        settings.logger.exception(f"An unexpected error occurred while fetching tokens: {e}.")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred while fetching tokens: {e}")
 
 def get_token_by_user_id(db:Session,user_id:int):
+    """
+        Retrieve the token associated with a specific user ID.
+
+        - **db**: The database session used to execute queries.
+        - **user_id**: The ID of the user whose token is being retrieved.
+
+        Logic:
+            - Executes a query to fetch the token related to the specified user ID.
+
+        Returns:
+            - The token if found, otherwise returns None.
+
+        Error Handling:
+            - Raises a 500 error for any SQLAlchemy-related issues during the query.
+            - Raises a 500 error for any unexpected exceptions.
+    """
+
     try:
-        return db.query(Token).filter(Token.user_id==user_id).first()
+        token = db.query(Token).filter(Token.user_id == user_id).first()
+        if not token:
+            settings.logger.info(f"No token found for user ID {user_id}.")
+        return token
     except SQLAlchemyError as e:
+        settings.logger.exception(f"Database Error: {e}")
         raise HTTPException(status_code=500,detail=f"Database Error: {e}")
     except Exception as e:
-        raise HTTPException(status_code=500,detail=f"An unexpected error occurred {e}")
+        settings.logger.exception(f"An unexpected error in get_token_by_user_id {e}")
+        raise HTTPException(status_code=500,detail=f"An unexpected error in get_token_by_user_id {e}")
 
 def update_token_distance_duration(db:Session,token:Token,latitude:float,longitude:float, duration_value: int, distance_value: int):
+    """
+        Update the distance and duration for an existing token.
+
+        - **db**: The database session used to execute queries.
+        - **token**: The token object to be updated.
+        - **latitude**: The new latitude to be set for the token.
+        - **longitude**: The new longitude to be set for the token.
+        - **duration_value**: The new duration value to be set for the token.
+        - **distance_value**: The new distance value to be set for the token.
+
+        Logic:
+            - Updates the token's latitude, longitude, duration, and distance fields.
+            - Commits the changes to the database.
+
+        Returns:
+            - The updated token object.
+
+        Error Handling:
+            - Raises a 500 error for any SQLAlchemy-related issues during the update.
+            - Raises a 500 error for any unexpected exceptions.
+    """
     try:
         token.latitude=latitude
         token.longitude = longitude
@@ -129,21 +236,45 @@ def update_token_distance_duration(db:Session,token:Token,latitude:float,longitu
 
         db.commit()
         db.refresh(token)
+        settings.logger.info(f"Updated token {token.token_number} with new location and timing information.")
         return token
     except SQLAlchemyError as e:
         db.rollback()
+        settings.logger.exception(f"Database error {e}")
         raise HTTPException(status_code=500,detail=f"Database error {e}")
     except Exception as e:
-        raise HTTPException(status_code=500,detail=f"An unexpected error occurred {e}")
+        settings.logger.exception(f"An unexpected error in update_token_distance_duration {e}")
+        raise HTTPException(status_code=500,detail=f"An unexpected error in update_token_distance_duration {e}")
     
 def check_reach_out(latitude: float, longitude: float, distance: int, duration: int) -> bool:
+    """
+        Check if the user is in reach of the service based on their coordinates, distance, and duration.
+
+            - **latitude**: The latitude of the user's location.
+            - **longitude**: The longitude of the user's location.
+            - **distance**: The distance from the service location.
+            - **duration**: The duration of the user's travel.
+
+            Logic:  
+            - Validates the latitude and longitude values to ensure they are within valid ranges.
+            - Validates that distance and duration are both non-negative.
+            - Determines if the user is within reach based on predefined thresholds.
+
+            Returns:
+            - True if the user is considered to be in reach; False otherwise.
+
+            Error Handling:
+                - Raises a ValueError for invalid coordinate values.
+    """
     try:
         # Validate latitude and longitude (example: check if they are within valid GPS ranges)
         if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+            settings.logger.warning("Invalid latitude or longitude values.")
             raise HTTPException(status_code=400, detail="Invalid latitude or longitude values.")
 
         # Validate distance and duration (example: they should be non-negative)
         if distance < 0 or duration < 0:
+            settings.logger.warning("Distance and duration must be non-negative.")
             raise HTTPException(status_code=400, detail="Distance and duration must be non-negative.")
         
         service_coordinate = (settings.FIXED_COORDINATES[0], settings.FIXED_COORDINATES[1])
@@ -152,4 +283,5 @@ def check_reach_out(latitude: float, longitude: float, distance: int, duration: 
     except HTTPException as e:
         raise e
     except Exception as e:
-        raise HTTPException(status_code=500,detail=f"Unexpected error occurred: {e}")
+        settings.logger.exception(f"Unexpected error occurred in check_reach_out : {e}")
+        raise HTTPException(status_code=500,detail=f"Unexpected error occurred in check_reach_out : {e}")

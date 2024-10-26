@@ -2,11 +2,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import settings
-
+import redis 
 
 # Create SQLAlchemy engine and sessionmaker 
 engine = create_engine(settings.DATABASE_URL, echo=True) 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+# Initialize Redis client
+redis_client = redis.StrictRedis(host='redis', port=6379, db=0,decode_responses=True)
 
 # Base class for models
 Base = declarative_base()

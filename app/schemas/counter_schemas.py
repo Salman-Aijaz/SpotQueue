@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
-
 class CounterCreate(BaseModel):
     counter_number: int
     service_name: str
@@ -12,3 +11,6 @@ class CounterResponse(BaseModel):
 
     class Config:
         orm_mode = True
+
+class NextPersonRequest(BaseModel):
+    user_id: int

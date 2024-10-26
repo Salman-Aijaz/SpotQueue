@@ -11,7 +11,6 @@ class Token(Base):
     queue_position = Column(Integer)  # Position of the token in the queue
     issue_time = Column(DateTime, default=datetime.now(timezone.utc))  # Timestamp of token issuance
 
-
     latitude = Column(Float, nullable=False)  # Latitude of the user
     longitude = Column(Float, nullable=False)  # Longitude of the user
     
@@ -19,6 +18,7 @@ class Token(Base):
     duration = Column(Integer,nullable=True)
 
     reach_out = Column(Boolean, default=False)  # Default to False
+    work_status = Column(String, default="pending")
 
     # Foreign keys
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Link to the User table

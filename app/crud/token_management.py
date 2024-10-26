@@ -71,15 +71,16 @@ def create_token_record(db: Session, token_data: TokenCreate, duration_text: str
         db.add(new_token)
         db.commit()
         db.refresh(new_token)
+        settings.logger.info(f"Token {new_token_number} created for user {token_data.user_id}.")
         return new_token
     except SQLAlchemyError as e:
         db.rollback() 
+        settings.logger.exception(f"Database error while creating token record {e}.")
         raise HTTPException(status_code=500,detail=f"Database error occurred: {e}")
     except Exception as e:
+        settings.logger.exception(f"Unexpected error occurred while creating token record {e}.")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
     
-
-
 async def generate_token(request: TokenRequest, db: Session):
     """
         Generate a token based on user request.
@@ -105,12 +106,14 @@ async def generate_token(request: TokenRequest, db: Session):
         # Get user by email
         user = get_user_by_email(db, request.email)
         if not user:
-            raise HTTPException(status_code=400, detail="User not found")
+            settings.logger.warning(f"User with email {request.email} not found.")
+            raise HTTPException(status_code=400, detail=f"User with email {request.email} not found.")
 
         # Get service by name
         service = get_service_by_name(db, request.service_name)
         if not service:
-            raise HTTPException(status_code=400, detail="Service not found")
+            settings.logger.warning(f"Service {request.service_name} not found.")
+            raise HTTPException(status_code=400, detail=f"Service {request.service_name} not found.")
 
         # Access the service ID from the dictionary
         service_id = service["id"]
@@ -118,6 +121,7 @@ async def generate_token(request: TokenRequest, db: Session):
         # Get counter responsible for this service
         counter_id = get_counter_by_service_id(db, service_id)
         if counter_id is None:
+            settings.logger.warning(f"No counter available for service {service_id}.")
             raise HTTPException(status_code=400, detail="No counter available for this service")
 
         duration_text, distance_text = await get_distance(request.latitude, request.longitude)
@@ -138,6 +142,7 @@ async def generate_token(request: TokenRequest, db: Session):
     except HTTPException as e:
         raise e  # Re-raise HTTPExceptions
     except Exception as e:
+        settings.logger.exception(f"An unexpected error occurred while generating token: {e}")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred while generating token: {e}")
 
 
@@ -161,11 +166,14 @@ def get_token_by_counter_id(counter_id:int,db:Session):
     try:
         result= db.execute(select(Token).filter(Token.counter_id == counter_id)).scalars().all()
         if not result:
+            settings.logger.info(f"No tokens found for counter ID {counter_id}.")
             return None
         return result
     except SQLAlchemyError as e:
-        raise HTTPException(status_code=500, detail=f"Database error occurred: {e}")
+        settings.logger.exception(f"Database error while retrieving tokens by counter ID {e}.")
+        raise HTTPException(status_code=500, detail=f"Database error while retrieving tokens by counter ID {e}.")
     except Exception as e:
+        settings.logger.exception(f"An unexpected error occurred while fetching tokens: {e}.")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred while fetching tokens: {e}")
 
 def get_token_by_user_id(db:Session,user_id:int):
@@ -187,11 +195,16 @@ def get_token_by_user_id(db:Session,user_id:int):
     """
 
     try:
-        return db.query(Token).filter(Token.user_id==user_id).first()
+        token = db.query(Token).filter(Token.user_id == user_id).first()
+        if not token:
+            settings.logger.info(f"No token found for user ID {user_id}.")
+        return token
     except SQLAlchemyError as e:
+        settings.logger.exception(f"Database Error: {e}")
         raise HTTPException(status_code=500,detail=f"Database Error: {e}")
     except Exception as e:
-        raise HTTPException(status_code=500,detail=f"An unexpected error occurred {e}")
+        settings.logger.exception(f"An unexpected error in get_token_by_user_id {e}")
+        raise HTTPException(status_code=500,detail=f"An unexpected error in get_token_by_user_id {e}")
 
 def update_token_distance_duration(db:Session,token:Token,latitude:float,longitude:float, duration_value: int, distance_value: int):
     """
@@ -223,12 +236,15 @@ def update_token_distance_duration(db:Session,token:Token,latitude:float,longitu
 
         db.commit()
         db.refresh(token)
+        settings.logger.info(f"Updated token {token.token_number} with new location and timing information.")
         return token
     except SQLAlchemyError as e:
         db.rollback()
+        settings.logger.exception(f"Database error {e}")
         raise HTTPException(status_code=500,detail=f"Database error {e}")
     except Exception as e:
-        raise HTTPException(status_code=500,detail=f"An unexpected error occurred {e}")
+        settings.logger.exception(f"An unexpected error in update_token_distance_duration {e}")
+        raise HTTPException(status_code=500,detail=f"An unexpected error in update_token_distance_duration {e}")
     
 def check_reach_out(latitude: float, longitude: float, distance: int, duration: int) -> bool:
     """
@@ -253,10 +269,12 @@ def check_reach_out(latitude: float, longitude: float, distance: int, duration: 
     try:
         # Validate latitude and longitude (example: check if they are within valid GPS ranges)
         if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+            settings.logger.warning("Invalid latitude or longitude values.")
             raise HTTPException(status_code=400, detail="Invalid latitude or longitude values.")
 
         # Validate distance and duration (example: they should be non-negative)
         if distance < 0 or duration < 0:
+            settings.logger.warning("Distance and duration must be non-negative.")
             raise HTTPException(status_code=400, detail="Distance and duration must be non-negative.")
         
         service_coordinate = (settings.FIXED_COORDINATES[0], settings.FIXED_COORDINATES[1])
@@ -265,4 +283,5 @@ def check_reach_out(latitude: float, longitude: float, distance: int, duration: 
     except HTTPException as e:
         raise e
     except Exception as e:
-        raise HTTPException(status_code=500,detail=f"Unexpected error occurred: {e}")
+        settings.logger.exception(f"Unexpected error occurred in check_reach_out : {e}")
+        raise HTTPException(status_code=500,detail=f"Unexpected error occurred in check_reach_out : {e}")

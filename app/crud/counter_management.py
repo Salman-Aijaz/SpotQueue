@@ -1,5 +1,6 @@
 
 import asyncio
+import traceback
 from sqlalchemy.orm import Session
 from app.models.counter_models import Counter
 from app.models.token_models import Token
@@ -30,6 +31,7 @@ def create_counter(db: Session, counter: CounterCreate):
         service = db.query(Service).filter(Service.service_name == counter.service_name).first()
         
         if not service:
+            settings.logger.error("Service not found for creation.")
             raise HTTPException(status_code=400, detail="Service not found")
         
         # Check if the counter already exists
@@ -39,6 +41,7 @@ def create_counter(db: Session, counter: CounterCreate):
         ).first()
         
         if existing_counter:
+            settings.logger.warning(f"Counter {counter.counter_number} for service {service.id} already exists.")
             raise HTTPException(status_code=400, detail="Counter already exists")
 
         new_counter = Counter(counter_number=counter.counter_number, service_id=service.id)
@@ -48,9 +51,12 @@ def create_counter(db: Session, counter: CounterCreate):
         counters_count = db.query(Counter).filter(Counter.service_id == service.id).count()
         service.number_of_counters = counters_count
         db.commit()
+
+        settings.logger.info(f"Counter {new_counter.id} created for service {service.id}.")
         return new_counter
     except SQLAlchemyError as e:
         db.rollback()
+        settings.logger.error(f"Error while creating counter: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error while creating counter: {e}")
 
 # 2. Retrieve all counters
@@ -70,9 +76,12 @@ def get_all_counters(db: Session):
     try:
         counters = db.query(Counter).all()
         if not counters:
+            settings.logger.warning("No counters found in the database.")            
             raise HTTPException(status_code=404, detail="No counters available")
+        settings.logger.info(f"Fetched {len(counters)} counters.")
         return counters
     except SQLAlchemyError as e:
+        settings.logger.error(f"Error while fetching counters: {traceback.format_exc()}")        
         raise HTTPException(status_code=500, detail=f"Error while fetching counters: {e}")
 
 # 3. Retrieve a counter by ID
@@ -93,9 +102,12 @@ def get_counter_by_id(db: Session, counter_id: int):
     try:
         counter = db.query(Counter).filter(Counter.id == counter_id).first()
         if not counter:
+            settings.logger.warning(f"Counter {counter_id} not found.")
             raise HTTPException(status_code=404, detail="Counter not found")
+        settings.logger.info(f"Fetched counter ID {counter_id}.")
         return counter
     except SQLAlchemyError as e:
+        settings.logger.error(f"Error while fetching the counter: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error while fetching the counter: {e}")
 
 def get_counter_by_service_id(db: Session, service_id: int):
@@ -114,8 +126,13 @@ def get_counter_by_service_id(db: Session, service_id: int):
     """
     try:
         counter = db.query(Counter).filter(Counter.service_id == service_id).first()
+        if counter:
+            settings.logger.info(f"Found counter with ID: {counter.id} for service ID: {service_id}")
+        else:
+            settings.logger.warning(f"No counter found for service ID: {service_id}")
         return counter.id if counter else None  # Return counter id or None if not found
     except SQLAlchemyError as e:
+        settings.logger.error(f"Database error when retrieving counter by service ID {service_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error in get_counter_by_service_id: {e}")
     
 async def process_next_person(user_id: int, db: Session):

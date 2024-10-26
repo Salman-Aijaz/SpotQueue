@@ -20,5 +20,6 @@ services:
     container_name: redis
     ports:
       - "6379:6379"
+    restart: always   
 volumes:
   app_data:

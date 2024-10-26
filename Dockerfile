@@ -4,7 +4,10 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Install dependencies in a virtual environment
+RUN python -m venv venv &&\
+./venv/bin/pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
